@@ -8,6 +8,15 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, C
 ChartJS.defaults.color = '#94a3b8';
 ChartJS.defaults.font.family = 'Outfit, sans-serif';
 
+// Determine API URL based on environment
+const API_URL = import.meta.env.MODE === 'production' 
+  ? 'https://cloud-gaurd.vercel.app/api'
+  : 'http://localhost:8000/api';
+
+const WS_URL = import.meta.env.MODE === 'production'
+  ? 'wss://cloud-gaurd.vercel.app/ws'
+  : 'ws://localhost:8000/ws';
+
 function App() {
   const [status, setStatus] = useState('Initializing Server...');
   const [statusOnline, setStatusOnline] = useState(false);
@@ -40,7 +49,7 @@ function App() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/heartbeat');
+        const res = await fetch(`${API_URL}/heartbeat`);
         if (!res.ok) throw new Error('API Error');
         const data = await res.json();
         setStatusOnline(data.status === 'online');
@@ -54,7 +63,7 @@ function App() {
     
     const fetchDrift = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/drift');
+        const res = await fetch(`${API_URL}/drift`);
         if (res.ok) {
           const data = await res.json();
           setDriftHistory(data.drift_history || []);
@@ -64,14 +73,14 @@ function App() {
 
     const fetchSparklineAndShadow = async () => {
       try {
-        const resSp = await fetch('http://localhost:8000/api/aws/predictive-scaling');
+        const resSp = await fetch(`${API_URL}/aws/predictive-scaling`);
         if (resSp.ok) { const pay = await resSp.json(); if (pay.status === 'success') setAwsSparkline(pay.data); }
       } catch (e) {}
     };
 
     const fetchCompliance = async () => {
       try {
-        const res = await fetch('http://localhost:8000/api/compliance/status');
+        const res = await fetch(`${API_URL}/compliance/status`);
         if (res.ok) {
            const data = await res.json();
            if(data.status === 'success') setCompliance(data.scorecard);
@@ -82,7 +91,7 @@ function App() {
     fetchStatus(); fetchDrift(); fetchSparklineAndShadow(); fetchCompliance();
     
     // Connect WebSocket
-    const ws = new WebSocket("ws://localhost:8000/ws");
+    const ws = new WebSocket(WS_URL);
     
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -115,7 +124,7 @@ function App() {
     setIsAuditing(true); setAuditResult(null); setAiInsight(null); setActiveProvider(providerName);
     try {
       const endpoint = providerName.toLowerCase();
-      const res = await fetch(`http://localhost:8000/api/${endpoint}/audit`, { method: 'POST' });
+      const res = await fetch(`${API_URL}/${endpoint}/audit`, { method: 'POST' });
       const data = await res.json();
       if (data.status === 'success') { 
         setAuditResult(data.finding); 
@@ -131,7 +140,7 @@ function App() {
     if (!auditResult) return;
     setIsAnalyzing(true);
     try {
-      const res = await fetch('http://localhost:8000/api/analyze-risk', {
+      const res = await fetch(`${API_URL}/analyze-risk`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ finding: auditResult })
       });
@@ -163,7 +172,7 @@ function App() {
           ? { group_id: auditResult.GroupId, port, protocol, region: auditResult.AwsRegion }
           : auditResult;
 
-      const res = await fetch(`http://localhost:8000/api/${endpoint}/remediate`, {
+      const res = await fetch(`${API_URL}/${endpoint}/remediate`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyPayload)
       });
@@ -179,7 +188,7 @@ function App() {
   const runShadowItAudit = async () => {
       setIsShadowScanning(true);
       try {
-        const resSh = await fetch('http://localhost:8000/api/aws/shadow-it');
+        const resSh = await fetch(`${API_URL}/aws/shadow-it`);
         if (resSh.ok) { 
            const pay = await resSh.json(); 
            setShadowIt(pay.shadow_instances || []); 
@@ -195,7 +204,7 @@ function App() {
   const runComplianceAudit = async () => {
       setIsComplianceScanning(true);
       try {
-        const res = await fetch('http://localhost:8000/api/compliance/status');
+        const res = await fetch(`${API_URL}/compliance/status`);
         if (res.ok) {
            const data = await res.json();
            if(data.status === 'success') setCompliance(data.scorecard);
@@ -251,7 +260,7 @@ function App() {
         </div>
         
         <div className="flex items-center gap-5">
-          <a href="http://localhost:8000/api/report/export" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 px-5 py-2.5 rounded-full transition-all shadow-[0_0_15px_rgba(99,102,241,0.4)] hover:shadow-[0_0_20px_rgba(99,102,241,0.6)] hover:-translate-y-0.5">
+          <a href={`${API_URL}/report/export`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 px-5 py-2.5 rounded-full transition-all shadow-[0_0_15px_rgba(99,102,241,0.4)] hover:shadow-[0_0_20px_rgba(99,102,241,0.6)] hover:-translate-y-0.5">
              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
              Export Executive Report
           </a>
@@ -368,7 +377,7 @@ function App() {
           <div className="p-5 h-64 overflow-y-auto space-y-2 text-[13px] flex flex-col flex-col-reverse custom-scrollbar">
             <div className="flex flex-col gap-1.5 justify-end w-full">
               {logs.length === 0 ? (
-                <div className="text-slate-600 italic">Listening for inbound WebSocket telemetry on ws://localhost:8000/ws...</div>
+                <div className="text-slate-600 italic">Listening for inbound WebSocket telemetry on {WS_URL}...</div>
               ) : (
                 logs.map((log, i) => (
                   <div key={i} className="flex gap-4 fade-in">
