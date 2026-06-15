@@ -1,6 +1,5 @@
 fastapi>=0.103.1
 uvicorn>=0.23.2
-mangum>=0.17.0
 boto3>=1.28.44
 azure-mgmt-resource>=23.0.1
 azure-identity>=1.14.0
